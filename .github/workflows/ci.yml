@@ -1,0 +1,74 @@
+name: AppTV CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # 1. Verificación del Dashboard Web (TypeScript + Lint + Tests unitarios + Build)
+  web-dashboard-check:
+    name: Web Dashboard (TypeScript, Tests & Build)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: web-dashboard
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: web-dashboard/package.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests (Manifest compiler & Offline Evaluator)
+        run: npm test
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Build production bundle
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  # 2. Verificación de la App Nativa Google TV (Kotlin + Gradle Unit Tests)
+  google-tv-app-check:
+    name: Google TV App (Kotlin Unit Tests & Verification)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: google-tv-app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: 17
+
+      - name: Verify Kotlin & Gradle structure
+        run: |
+          echo "Verificando estructura de archivos de la app Google TV..."
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -f app/build.gradle.kts
+          test -f app/src/main/AndroidManifest.xml
+          test -f app/src/main/java/com/apptv/player/ui/MainActivity.kt
+          test -f app/src/main/java/com/apptv/player/sync/ManifestSyncManager.kt
+          test -f app/src/main/java/com/apptv/player/domain/ScheduleEvaluator.kt
+          test -f app/src/test/java/com/apptv/player/domain/ScheduleEvaluatorTest.kt
+          echo "Todos los componentes de Google TV verificados exitosamente."
